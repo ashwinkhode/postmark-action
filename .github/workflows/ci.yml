@@ -21,28 +21,32 @@ jobs:
         id: checkout
         uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
       - name: Setup Node.js
         id: setup-node
         uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
-          cache: npm
+          cache: pnpm
 
       - name: Install Dependencies
-        id: npm-ci
-        run: npm ci
+        id: pnpm-ci
+        run: pnpm install --frozen-lockfile
 
       - name: Check Format
-        id: npm-format-check
-        run: npm run format:check
+        id: pnpm-format-check
+        run: pnpm run format:check
 
       - name: Lint
-        id: npm-lint
-        run: npm run lint
+        id: pnpm-lint
+        run: pnpm run lint
 
       - name: Test
-        id: npm-ci-test
-        run: npm run ci-test
+        id: pnpm-ci-test
+        run: pnpm run ci-test
 
   test-action:
     name: GitHub Actions Test
@@ -53,11 +57,33 @@ jobs:
         id: checkout
         uses: actions/checkout@v4
 
-      - name: Test Local Action
-        id: test-action
+      - name: Test Local Action Without Template
+        id: test-action-without-template
         uses: ./
         with:
-          milliseconds: 2000
+          postmark-token: ${{ secrets.POSTMARK_TOKEN }}
+          to: ${{ secrets.TO_EMAIL }}
+          from: ${{ secrets.FROM_EMAIL }}
+          subject: 'Test Email Without Template'
+          body: 'This is a test email without template'
+          is-html: false
+
+      - name: Test Local Action With Template
+        id: test-action-with-template
+        uses: ./
+        with:
+          postmark-token: ${{ secrets.POSTMARK_TOKEN }}
+          to: ${{ secrets.TO_EMAIL }}
+          from: ${{ secrets.FROM_EMAIL }}
+          subject: 'Test Email With Template'
+          is-html: true
+          template-path: './templates/test.html'
+          template-data: |
+            {
+              "name": "${{ secrets.NAME }}",
+              "age": 25,
+              "gender": "male"
+            }
 
       - name: Print Output
         id: output

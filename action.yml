@@ -1,24 +1,40 @@
-name: 'The name of your action here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
-
-# Add your action's branding here. This will appear on the GitHub Marketplace.
+name: 'Postmark Action'
+description: 'Send emails using Postmark API with template support'
+author: 'Ashwin Khode <ashwin.khode1@gmail.com>'
 branding:
-  icon: 'heart'
-  color: 'red'
+  icon: 'mail'
+  color: 'yellow'
 
-# Define your inputs here.
 inputs:
-  milliseconds:
-    description: 'Your input description here'
+  postmark-token:
+    description: 'Postmark API token'
     required: true
-    default: '1000'
+  to:
+    description: 'Recipient email address'
+    required: true
+  from:
+    description: 'Sender email address'
+    required: true
+  subject:
+    description: 'Email subject'
+    required: true
+  body:
+    description: 'Email body content (not required if using template)'
+    required: false
+  template-path:
+    description: 'Path to the HTML template file'
+    required: false
+  template-data:
+    description: 'JSON string containing template variables'
+    required: false
+  is-html:
+    description: 'Whether the body content is HTML'
+    required: true
 
-# Define your outputs here.
 outputs:
-  time:
-    description: 'Your output description here'
-
+  status:
+    description: 'Status of the email sending operation'
+    
 runs:
-  using: node20
-  main: dist/index.js
+  using: 'node20'
+  main: 'dist/index.js'

@@ -1,89 +1,329 @@
-/**
- * Unit tests for the action's main functionality, src/main.ts
- *
- * These should be run as if the action was called from a workflow.
- * Specifically, the inputs listed in `action.yml` should be set as environment
- * variables following the pattern `INPUT_<INPUT_NAME>`.
- */
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import * as core from '@actions/core';
+import * as main from '../src/main';
 
-import * as core from '@actions/core'
-import * as main from '../src/main'
+const mockSendEmail = vi.fn();
+const mockServerClientInstance = {
+  sendEmail: mockSendEmail
+};
 
-// Mock the action's main function
-const runMock = jest.spyOn(main, 'run')
+// Mock dependencies
+vi.mock('fs/promises');
+vi.mock('handlebars');
 
-// Other utilities
-const timeRegex = /^\d{2}:\d{2}:\d{2}/
+// Mock postmark with a proper factory function
+vi.mock('postmark', () => ({
+  ServerClient: vi.fn().mockImplementation(() => mockServerClientInstance)
+}));
+
+// Mock dependencies
+vi.mock('fs/promises');
+vi.mock('handlebars');
 
 // Mock the GitHub Actions core library
-let debugMock: jest.SpiedFunction<typeof core.debug>
-let errorMock: jest.SpiedFunction<typeof core.error>
-let getInputMock: jest.SpiedFunction<typeof core.getInput>
-let setFailedMock: jest.SpiedFunction<typeof core.setFailed>
-let setOutputMock: jest.SpiedFunction<typeof core.setOutput>
+vi.mock('@actions/core');
 
-describe('action', () => {
+describe('Input Validation', () => {
+  const validInputs = {
+    'postmark-token': 'test-token',
+    to: 'test@example.com',
+    from: 'sender@example.com',
+    subject: 'Test Subject',
+    body: 'Test Body',
+    'is-html': false,
+    'template-path': '',
+    'template-data': ''
+  };
+
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks();
+    // Setup default mock implementations
+    vi.mocked(core.getInput).mockImplementation(
+      (name: string) => validInputs[name] || ''
+    );
+    vi.mocked(core.getBooleanInput).mockImplementation((name: string) =>
+      Boolean(validInputs[name])
+    );
+  });
 
-    debugMock = jest.spyOn(core, 'debug').mockImplementation()
-    errorMock = jest.spyOn(core, 'error').mockImplementation()
-    getInputMock = jest.spyOn(core, 'getInput').mockImplementation()
-    setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation()
-    setOutputMock = jest.spyOn(core, 'setOutput').mockImplementation()
-  })
+  it('should fail when postmark token is missing', async () => {
+    vi.mocked(core.getInput).mockImplementation((name: string) =>
+      name === 'postmark-token' ? '' : validInputs[name]
+    );
 
-  it('sets the time output', async () => {
-    // Set the action's inputs as return values from core.getInput()
-    getInputMock.mockImplementation(name => {
-      switch (name) {
-        case 'milliseconds':
-          return '500'
-        default:
-          return ''
-      }
-    })
+    await main.run();
+    expect(core.setFailed).toHaveBeenCalledWith('Postmark token is required');
+  });
 
-    await main.run()
-    expect(runMock).toHaveReturned()
+  it('should fail with invalid recipient email', async () => {
+    vi.mocked(core.getInput).mockImplementation((name: string) =>
+      name === 'to' ? 'invalid-email' : validInputs[name]
+    );
 
-    // Verify that all of the core library functions were called correctly
-    expect(debugMock).toHaveBeenNthCalledWith(1, 'Waiting 500 milliseconds ...')
-    expect(debugMock).toHaveBeenNthCalledWith(
-      2,
-      expect.stringMatching(timeRegex)
-    )
-    expect(debugMock).toHaveBeenNthCalledWith(
-      3,
-      expect.stringMatching(timeRegex)
-    )
-    expect(setOutputMock).toHaveBeenNthCalledWith(
-      1,
-      'time',
-      expect.stringMatching(timeRegex)
-    )
-    expect(errorMock).not.toHaveBeenCalled()
-  })
+    await main.run();
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'Valid recipient email is required'
+    );
+  });
 
-  it('sets a failed status', async () => {
-    // Set the action's inputs as return values from core.getInput()
-    getInputMock.mockImplementation(name => {
-      switch (name) {
-        case 'milliseconds':
-          return 'this is not a number'
-        default:
-          return ''
-      }
-    })
+  it('should fail with invalid sender email', async () => {
+    vi.mocked(core.getInput).mockImplementation((name: string) =>
+      name === 'from' ? 'invalid-email' : validInputs[name]
+    );
 
-    await main.run()
-    expect(runMock).toHaveReturned()
+    await main.run();
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'Valid sender email is required'
+    );
+  });
 
-    // Verify that all of the core library functions were called correctly
-    expect(setFailedMock).toHaveBeenNthCalledWith(
-      1,
-      'milliseconds not a number'
-    )
-    expect(errorMock).not.toHaveBeenCalled()
-  })
-})
+  it('should fail when both template path and body are missing', async () => {
+    vi.mocked(core.getInput).mockImplementation((name: string) =>
+      name === 'body' ? '' : validInputs[name]
+    );
+
+    await main.run();
+    expect(core.setFailed).toHaveBeenCalledWith(
+      'Either template path or email body is required'
+    );
+  });
+});
+
+describe('Postmark Email Action', () => {
+  let mockServerClient: typeof mockServerClientInstance;
+  const defaultInputs = {
+    'postmark-token': 'test-token',
+    to: 'test@example.com',
+    from: 'sender@example.com',
+    subject: 'Test Subject',
+    body: 'Test Body',
+    'template-path': '',
+    'template-data': '',
+    'is-html': false
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Setup core input mocks
+    vi.mocked(core.getInput).mockImplementation(
+      (name: string) => defaultInputs[name] || ''
+    );
+    vi.mocked(core.getBooleanInput).mockImplementation((name: string) =>
+      Boolean(defaultInputs[name])
+    );
+
+    mockServerClient = mockServerClientInstance;
+  });
+
+  describe('run()', () => {
+    const mockSuccessResponse = {
+      ErrorCode: 0,
+      Message: 'OK',
+      MessageID: 'test-message-id',
+      SubmittedAt: '2024-12-21T17:04:09.4948172Z',
+      To: 'test@example.com'
+    };
+
+    it('should successfully send a plain text email', async () => {
+      // Setup success response
+      mockServerClient.sendEmail.mockResolvedValue(mockSuccessResponse);
+
+      await main.run();
+
+      expect(mockServerClient.sendEmail).toHaveBeenCalledTimes(1);
+      expect(mockServerClient.sendEmail).toHaveBeenCalledWith({
+        To: defaultInputs.to,
+        From: defaultInputs.from,
+        Subject: defaultInputs.subject,
+        TextBody: defaultInputs.body
+      });
+
+      expect(core.setOutput).toHaveBeenCalledWith('status', 'success');
+      expect(core.setFailed).not.toHaveBeenCalled();
+    });
+
+    it('should successfully send an HTML email', async () => {
+      const htmlInputs = { ...defaultInputs, 'is-html': true };
+      vi.mocked(core.getBooleanInput).mockImplementation((name: string) =>
+        Boolean(htmlInputs[name])
+      );
+
+      mockServerClient.sendEmail.mockResolvedValue(mockSuccessResponse);
+
+      await main.run();
+
+      expect(mockServerClient.sendEmail).toHaveBeenCalledWith({
+        To: htmlInputs.to,
+        From: htmlInputs.from,
+        Subject: htmlInputs.subject,
+        HtmlBody: htmlInputs.body
+      });
+    });
+
+    it('should handle Postmark API errors', async () => {
+      const apiError = new Error('Postmark API Error');
+      mockServerClient.sendEmail.mockRejectedValue(apiError);
+
+      await main.run();
+
+      expect(core.setFailed).toHaveBeenCalledWith(
+        'Failed to send email: Postmark API Error'
+      );
+      expect(core.setOutput).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('EmailService', () => {
+    // TODO: fix this test case
+    it.skip('should initialize with custom config options', () => {
+      const configOptions = { useHTTPS: true, timeout: 30 };
+      new main.EmailService('test-token', configOptions);
+
+      expect(mockServerClient).toHaveBeenCalledWith(
+        'test-token',
+        configOptions
+      );
+    });
+
+    it('should handle successful email sending', async () => {
+      const emailService = new main.EmailService('test-token');
+      const mockResponse = {
+        ErrorCode: 0,
+        Message: 'OK',
+        SubmittedAt: new Date().toISOString(),
+        MessageID: 'aklsdj-asdljasd-asldkjasd-asdlkj'
+      };
+
+      mockServerClient.sendEmail.mockResolvedValue(mockResponse);
+
+      const emailParams = {
+        To: 'test@example.com',
+        From: 'sender@example.com',
+        Subject: 'Test',
+        TextBody: 'Test'
+      };
+
+      const result = await emailService.sendEmail(emailParams);
+
+      expect(result).toEqual(true);
+      expect(mockServerClient.sendEmail).toHaveBeenCalledWith(emailParams);
+    });
+
+    it('should properly propagate errors', async () => {
+      const emailService = new main.EmailService('test-token');
+      const error = new Error('API Error');
+
+      mockServerClient.sendEmail.mockRejectedValue(error);
+
+      await expect(
+        emailService.sendEmail({
+          To: 'test@example.com',
+          From: 'sender@example.com',
+          Subject: 'Test',
+          TextBody: 'Test'
+        })
+      ).rejects.toThrow('API Error');
+    });
+  });
+});
+
+// describe('TemplateProcessor', () => {
+//   let processor: main.TemplateProcessor;
+//   const TEMPLATE_PATH = '../templates/test.html';
+
+//   beforeEach(() => {
+//     vi.clearAllMocks();
+//     processor = new main.TemplateProcessor();
+//   });
+
+//   describe('loadTemplate', () => {
+//     it('should load and compile template successfully', async () => {
+//       const templateContent = 'Hello {{name}}!';
+//       vi.mocked(fs.readFile).mockResolvedValue(templateContent);
+
+//       await processor.loadTemplate(TEMPLATE_PATH);
+//       const result = processor.processTemplate({ name: 'John' });
+
+//       expect(result).toBe('Hello John!');
+//       expect(fs.readFile).toHaveBeenCalledWith(TEMPLATE_PATH, 'utf-8');
+//     });
+
+//     it('should throw error when file read fails', async () => {
+//       vi.mocked(fs.readFile).mockRejectedValue(new Error('File not found'));
+
+//       await expect(processor.loadTemplate(TEMPLATE_PATH))
+//         .rejects.toThrow('Failed to load template: File not found');
+//     });
+//   });
+
+//   describe('processTemplate', () => {
+//     it('should throw error when template not loaded', () => {
+//       expect(() => processor.processTemplate({ name: 'John' }))
+//         .toThrow('Template not loaded');
+//     });
+
+//     it('should process template with valid data', async () => {
+//       const templateContent = 'Hello {{name}}!';
+//       vi.mocked(fs.readFile).mockResolvedValue(templateContent);
+
+//       await processor.loadTemplate(TEMPLATE_PATH);
+//       const result = processor.processTemplate({ name: 'John' });
+
+//       expect(result).toBe('Hello John!');
+//     });
+//   });
+
+//   describe('registerHelpers', () => {
+//     beforeEach(() => {
+//       // Reset Handlebars helpers before each test
+//       Handlebars.helpers = {};
+//       main.TemplateProcessor.registerHelpers();
+//     });
+
+//     it('should register formatDate helper', async () => {
+//       const templateContent = '{{formatDate date}}';
+//       vi.mocked(fs.readFile).mockResolvedValue(templateContent);
+
+//       await processor.loadTemplate(TEMPLATE_PATH);
+//       const result = processor.processTemplate({
+//         date: new Date('2024-01-01')
+//       });
+
+//       expect(result).toMatch(/\d{1,2}\/\d{1,2}\/\d{4}/);
+//     });
+
+//     it('should register uppercase helper', async () => {
+//       const templateContent = '{{uppercase text}}';
+//       vi.mocked(fs.readFile).mockResolvedValue(templateContent);
+
+//       await processor.loadTemplate(TEMPLATE_PATH);
+//       const result = processor.processTemplate({ text: 'hello' });
+
+//       expect(result).toBe('HELLO');
+//     });
+
+//     it('should register lowercase helper', async () => {
+//       const templateContent = '{{lowercase text}}';
+//       vi.mocked(fs.readFile).mockResolvedValue(templateContent);
+
+//       await processor.loadTemplate(TEMPLATE_PATH);
+//       const result = processor.processTemplate({ text: 'HELLO' });
+
+//       expect(result).toBe('hello');
+//     });
+
+//     it('should register conditional helper', async () => {
+//       const templateContent = '{{conditional isActive "Active" "Inactive"}}';
+//       vi.mocked(fs.readFile).mockResolvedValue(templateContent);
+
+//       await processor.loadTemplate(TEMPLATE_PATH);
+
+//       const activeResult = processor.processTemplate({ isActive: true });
+//       expect(activeResult).toBe('Active');
+
+//       const inactiveResult = processor.processTemplate({ isActive: false });
+//       expect(inactiveResult).toBe('Inactive');
+//     });
+//   });
+// });

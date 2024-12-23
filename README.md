@@ -15,6 +15,12 @@ This action allows you to send emails through Postmark's API directly from your 
 - Dynamic template variable substitution
 - Simple integration with GitHub Actions workflows
 
+## Requirements
+
+- A Postmark account and API token (sign up at [postmarkapp.com](https://postmarkapp.com))
+- Node.js 22 (handled automatically by GitHub Actions)
+- Sender email address must be verified with Postmark
+
 ## Usage
 
 ### Basic Example (Plain Text)
@@ -181,11 +187,6 @@ You can also use GitHub context variables in the subject line:
 subject: 'Build ${{ github.run_number }} - ${{ job.status }} on ${{ github.repository }}'
 ```
 
-## Requirements
-
-- A Postmark account and API token
-- Node.js 22 (handled automatically by GitHub Actions)
-
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -196,14 +197,43 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
+## Author
+
+Ashwin Khode ([@ashwin4real](https://twitter.com/ashwin4real))
+
+## Support
+
+- For issues with this Action: [Open an issue](https://github.com/ashwinkhode/postmark-action/issues)
+- For API questions: [Postmark's API Documentation](https://postmarkapp.com/developer/api/overview)
+
+## Credits
+
+This project uses:
+- [Postmark API](https://postmarkapp.com/developer)
+- [GitHub Actions](https://docs.github.com/en/actions)
+- [Node.js](https://nodejs.org/)
+- [axios](https://axios-http.com/)
+- [handlebars](https://handlebarsjs.com/)
+
+## Security
+
+For security concerns, please review our [Security Policy](SECURITY.md) before submitting an issue.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Author
+## Legal Notice
 
-Ashwin Khode ([@ashwinkhode](https://github.com/ashwinkhode))
+This GitHub Action is an independent, unofficial integration and is not affiliated with, endorsed by, or connected to Postmark® or Wildbit LLC. Postmark® is a registered trademark of Wildbit LLC.
 
-## Support
+This Action uses Postmark's public API. For official resources:
+- [Postmark Documentation](https://postmarkapp.com/developer)
+- [API Reference](https://postmarkapp.com/developer/api/overview)
+- [Terms of Service](https://postmarkapp.com/terms-of-service)
 
-For issues and feature requests, please [open an issue](https://github.com/ashwinkhode/postmark-action/issues) on GitHub.
+The MIT License applies only to the code in this repository and not to Postmark's services or API. Users must comply with [Postmark's Terms of Service](https://postmarkapp.com/terms-of-service) and [Sender Policy](https://postmarkapp.com/support/article/1047-how-to-request-sender-signature-approval).
+
+---
+
+*Note: This Action is maintained independently. For official Postmark integrations, visit [postmarkapp.com](https://postmarkapp.com).*

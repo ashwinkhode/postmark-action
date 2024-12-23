@@ -110,6 +110,10 @@ export class TemplateProcessor {
       (condition: boolean, positive: string, negative: string) =>
         condition ? positive : negative
     );
+
+    Handlebars.registerHelper('json', (context: TemplateData) => {
+      return JSON.stringify(context, null, 2);
+    });
   }
 }
 
@@ -166,6 +170,7 @@ export async function run(): Promise<void> {
         inputs.templateData
       );
       const templateProcessor = new TemplateProcessor();
+      TemplateProcessor.registerHelpers()
       await templateProcessor.loadTemplate(inputs.templatePath);
       body = templateProcessor.processTemplate(templateData);
     }
@@ -190,4 +195,3 @@ export async function run(): Promise<void> {
   }
 }
 
-// function readTemplateAndSendMail() {}

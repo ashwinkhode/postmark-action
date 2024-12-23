@@ -46854,6 +46854,9 @@ class TemplateProcessor {
         lib_default().registerHelper('uppercase', (str) => str.toUpperCase());
         lib_default().registerHelper('lowercase', (str) => str.toLowerCase());
         lib_default().registerHelper('conditional', (condition, positive, negative) => condition ? positive : negative);
+        lib_default().registerHelper('json', (context) => {
+            return JSON.stringify(context, null, 2);
+        });
     }
 }
 class EmailService {
@@ -46894,6 +46897,7 @@ async function run() {
         if (inputs.templatePath && inputs.templateData) {
             const templateData = InputValidator.validateTemplateData(inputs.templateData);
             const templateProcessor = new TemplateProcessor();
+            TemplateProcessor.registerHelpers();
             await templateProcessor.loadTemplate(inputs.templatePath);
             body = templateProcessor.processTemplate(templateData);
         }
@@ -46918,7 +46922,6 @@ async function run() {
             core.setFailed(error.message);
     }
 }
-// function readTemplateAndSendMail() {}
 
 ;// CONCATENATED MODULE: ./src/index.ts
 /**

@@ -1,7 +1,7 @@
 {
   "name": "postmark-action",
   "description": "A Github Action to send emails using Postmark",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": "Ashwin Khode <ashwin.khode1@gmail.com>",
   "private": true,
   "homepage": "https://github.com/ashwinkhode/postmark-action",

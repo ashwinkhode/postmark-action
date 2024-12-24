@@ -212,12 +212,7 @@ This project uses:
 - [Postmark API](https://postmarkapp.com/developer)
 - [GitHub Actions](https://docs.github.com/en/actions)
 - [Node.js](https://nodejs.org/)
-- [axios](https://axios-http.com/)
 - [handlebars](https://handlebarsjs.com/)
-
-## Security
-
-For security concerns, please review our [Security Policy](SECURITY.md) before submitting an issue.
 
 ## License
 

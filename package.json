@@ -52,14 +52,14 @@
     "tsx": "^4.19.2"
   },
   "devDependencies": {
-    "@biomejs/biome": "1.5.3",
-    "@github/local-action": "^2.2.1",
-    "@types/node": "^22.10.2",
+    "@biomejs/biome": "1.9.4",
+    "@github/local-action": "^2.5.1",
+    "@types/node": "^22.10.7",
     "@vercel/ncc": "^0.38.3",
     "@vitest/coverage-v8": "^2.1.8",
     "@vitest/ui": "^2.1.8",
     "make-coverage-badge": "^1.2.0",
-    "typescript": "^5.7.2",
+    "typescript": "^5.7.3",
     "vitest": "^2.1.8"
   }
 }

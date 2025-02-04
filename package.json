@@ -60,6 +60,6 @@
     "@vitest/ui": "^2.1.8",
     "make-coverage-badge": "^1.2.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.9"
   }
 }
